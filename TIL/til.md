@@ -7,3 +7,8 @@
 (NAT Gateway didn't work, although I did everything according to the manual, I still need help)
 - The count parameter in AWS is the same as in Terraform
 - DevOps Vadim has a good microphone. Like a microphone on the radio :-)
+
+> 01.06.2021
+- Looked at how AWS RDS works with master-master|master-slave replication
+- The message from the SAN "firmwаre is invalid" does not always mean bad. This was written in the SAN upgrade manual
+- Deployed AWS ASG from aws-cli
