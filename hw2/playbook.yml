@@ -1,0 +1,113 @@
+- hosts: dev
+  become: true
+
+  vars:
+    DESTAPPDIR: "/var/app-animals"
+    REQFILE: "./files/requirements.txt"
+
+  tasks:
+
+    - name: "apt-get update and install"
+      apt:
+        update_cache: true
+        cache_valid_time: 3600
+        name: 
+         - git
+         - python3-pip
+         - python-pip
+         - ufw
+         
+        state: latest
+
+    - name: "Install virtualenv"
+      pip:
+        name: virtualenv
+        executable: pip3
+
+    - name: "create app directory"
+      file:
+        path: "{{ DESTAPPDIR }}"
+        state: directory
+        mode: '0775'
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+
+    - name: "clone a repository"
+      git:
+        repo: https://github.com/karedinvs/animals-app.git
+        clone: yes
+        dest: "{{ DESTAPPDIR }}"
+    
+    - name: "copy Flask requirements"
+      copy:
+        src: "{{ REQFILE }}"
+        dest: "{{ DESTAPPDIR }}"
+    
+    - name: "Install requirements"
+      pip:
+        requirements: "{{ DESTAPPDIR }}/requirements.txt"
+        virtualenv: "{{ DESTAPPDIR }}/venv"
+        virtualenv_python: python3
+
+    - name: "Create systemd service for app"
+      template:
+        src: templates/app-animals.service.j2
+        dest: /etc/systemd/system/app-animals.service
+        owner: root
+        group: root
+        force: yes
+      notify:
+        - FlaskAppStart
+
+    - name: "Config sshd"
+      lineinfile:
+        path: "/etc/ssh/sshd_config"
+        regex: "^(#)?{{item.key}}"
+        line: "{{item.key}} {{item.value}}"
+        state: present
+      loop:
+        - { key: "PermitRootLogin", value: "no" }
+        - { key: "PasswordAuthentication", value: "no" }
+      notify:
+        - Reload sshd
+
+
+    - name: "Open Ports"
+      ufw:
+              rule: "{{ item.rule }}"
+              port: "{{ item.port }}"
+              proto: "{{ item.proto }}"
+      with_items:
+              - { rule: 'allow', port: 22, proto: 'tcp' }
+              - { rule: 'allow', port: 80, proto: 'tcp' }
+
+    - name: "Default traffic IN-OUT"
+      ufw:
+              direction: "{{ item.direction }}"
+              policy: "{{ item.policy }}"
+              state: enabled
+      with_items:
+              - { direction: outgoing, policy: allow }
+              - { direction: incoming, policy: deny }
+      notify:
+        - Reload ufw
+
+
+  handlers:
+    - name: "FlaskAppStart"
+      service:
+        name: app-animals
+        state: restarted
+        enabled: yes
+        daemon_reload: true
+
+    - name: "Reload sshd"
+      service:
+        name: sshd
+        state: restarted
+
+    - name: "Reload ufw"
+      service:
+        name: ufw
+        state: restarted

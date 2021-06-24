@@ -1,0 +1,14 @@
+[Unit]
+Description=app-animals service
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory={{ DESTAPPDIR }}
+ExecStart={{ DESTAPPDIR }}/venv/bin/python -m flask run --host=0.0.0.0 --port=80
+Restart=always
+Type=simple
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target
